@@ -1,0 +1,10 @@
+venv/
+venv310/
+**/venv/
+**/venv310/
+
+Lib/
+Scripts/
+Include/
+share/
+*.dist-info/
