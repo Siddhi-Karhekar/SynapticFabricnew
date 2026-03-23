@@ -92,23 +92,15 @@ export default function MachineCard({ machine, onMaintain }) {
         ⏱ {rulTime ?? "--"}
       </p>
 
-      <p style={{ fontSize: "12px", color: "#90caf9" }}>
-  🔮 Future Temp: {machine.future_temperature ?? "--"} °C
-      </p>
-      {/* 🧠 AI REASON */}
-      <p style={{ marginTop: 6 }}>
-        🧠 {machine.ai_reason ?? "No insight"}
-      </p>
+      
+      
 
       {/* 📊 ML CONFIDENCE */}
       <p>
         📊 ML Confidence: {(prediction * 100).toFixed(1)}%
       </p>
 
-      {/* 🧬 ANOMALY SCORE */}
-      <p>
-        🧬 ML Anomaly: {(machine.anomaly_ml_score ?? 0).toFixed(3)}
-      </p>
+      
 
       {/* 📊 RISK BAR */}
       <div style={{
