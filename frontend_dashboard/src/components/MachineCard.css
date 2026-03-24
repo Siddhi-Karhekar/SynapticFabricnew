@@ -1,6 +1,10 @@
 /* =====================================================
-   SYNAPTICFABRIC — MACHINE CARD STYLES
+   SYNAPTICFABRIC — MACHINE CARD STYLES (FINAL)
    Industrial AI Dashboard UI
+===================================================== */
+
+/* =====================================================
+   BASE CARD
 ===================================================== */
 
 .machine-card {
@@ -14,17 +18,29 @@
   width: 230px;
   color: #e5e7eb;
 
+  position: relative;
+
+  /* Base shadow */
   box-shadow:
     0 6px 24px rgba(0, 0, 0, 0.45),
     inset 0 0 0 1px rgba(255,255,255,0.04);
 
-  transition: all 0.25s ease;
-  position: relative;
+  border: 1px solid rgba(255,255,255,0.05);
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border 0.25s ease;
 }
 
-/* Hover Lift Effect */
+
+/* =====================================================
+   HOVER EFFECT
+===================================================== */
+
 .machine-card:hover {
   transform: translateY(-6px);
+
   box-shadow:
     0 12px 35px rgba(0,0,0,0.6),
     inset 0 0 0 1px rgba(255,255,255,0.08);
@@ -50,7 +66,10 @@
 }
 
 
-/* Status Dot */
+/* =====================================================
+   STATUS DOT
+===================================================== */
+
 .status-dot {
   width: 12px;
   height: 12px;
@@ -78,8 +97,6 @@
   transition: width 0.5s ease, background-color 0.3s ease;
 }
 
-
-/* Health Label */
 .health-label {
   font-size: 12px;
   font-weight: 600;
@@ -90,7 +107,7 @@
 
 
 /* =====================================================
-   METRICS SECTION
+   METRICS
 ===================================================== */
 
 .machine-metrics {
@@ -110,7 +127,7 @@
 
 
 /* =====================================================
-   FUTURE AI INDICATOR AREA (Reserved)
+   AI OVERLAY (SUBTLE GLOW TOP)
 ===================================================== */
 
 .machine-card::after {
@@ -119,9 +136,99 @@
   inset: 0;
   border-radius: 14px;
   pointer-events: none;
+
   background: radial-gradient(
     circle at top,
     rgba(59,130,246,0.08),
     transparent 60%
   );
+}
+
+
+/* =====================================================
+   🔴 CRITICAL GLOW (HIGH PRIORITY)
+===================================================== */
+
+.critical-glow {
+  border: 1px solid #ff1744;
+
+  animation: pulseRed 1.5s infinite;
+
+  /* combine glow + base shadow */
+  box-shadow:
+    0 0 15px rgba(255, 23, 68, 0.7),
+    0 0 35px rgba(255, 23, 68, 0.5),
+    0 8px 30px rgba(0,0,0,0.6);
+}
+
+
+/* =====================================================
+   🟡 WARNING GLOW (MEDIUM PRIORITY)
+===================================================== */
+
+.warning-glow {
+  border: 1px solid #ffeb3b;
+
+  animation: pulseYellow 2s infinite;
+
+  box-shadow:
+    0 0 12px rgba(255, 235, 59, 0.6),
+    0 0 25px rgba(255, 235, 59, 0.4),
+    0 8px 30px rgba(0,0,0,0.6);
+}
+
+
+/* =====================================================
+   🔥 CRITICAL ANIMATION
+===================================================== */
+
+@keyframes pulseRed {
+  0% {
+    box-shadow:
+      0 0 12px rgba(255, 23, 68, 0.6),
+      0 0 25px rgba(255, 23, 68, 0.4),
+      0 8px 30px rgba(0,0,0,0.6);
+  }
+
+  50% {
+    box-shadow:
+      0 0 28px rgba(255, 23, 68, 1),
+      0 0 50px rgba(255, 23, 68, 0.9),
+      0 12px 40px rgba(0,0,0,0.8);
+  }
+
+  100% {
+    box-shadow:
+      0 0 12px rgba(255, 23, 68, 0.6),
+      0 0 25px rgba(255, 23, 68, 0.4),
+      0 8px 30px rgba(0,0,0,0.6);
+  }
+}
+
+
+/* =====================================================
+   🟡 WARNING ANIMATION
+===================================================== */
+
+@keyframes pulseYellow {
+  0% {
+    box-shadow:
+      0 0 10px rgba(255, 235, 59, 0.5),
+      0 0 18px rgba(255, 235, 59, 0.3),
+      0 8px 30px rgba(0,0,0,0.6);
+  }
+
+  50% {
+    box-shadow:
+      0 0 22px rgba(255, 235, 59, 0.9),
+      0 0 40px rgba(255, 235, 59, 0.7),
+      0 12px 40px rgba(0,0,0,0.8);
+  }
+
+  100% {
+    box-shadow:
+      0 0 10px rgba(255, 235, 59, 0.5),
+      0 0 18px rgba(255, 235, 59, 0.3),
+      0 8px 30px rgba(0,0,0,0.6);
+  }
 }

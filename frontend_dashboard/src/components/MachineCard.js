@@ -23,6 +23,23 @@ export default function MachineCard({ machine, onMaintain }) {
     STATUS_COLORS[machine.health_status] || "#ff5252";
 
   // =========================
+  // 🔥 GLOW CLASS LOGIC
+  // =========================
+  const getCardClass = () => {
+    let base = "machine-card";
+
+    if (machine.health_status === "Critical") {
+      return `${base} critical-glow`;
+    }
+
+    if (machine.health_status === "Warning") {
+      return `${base} warning-glow`;
+    }
+
+    return base;
+  };
+
+  // =========================
   // 🔧 MAINTENANCE
   // =========================
   const handleMaintainClick = async () => {
@@ -57,7 +74,7 @@ export default function MachineCard({ machine, onMaintain }) {
       : "#00e676";
 
   return (
-    <div className="machine-card">
+    <div className={getCardClass()}>
 
       {/* NAME */}
       <h3>{name}</h3>
@@ -92,15 +109,10 @@ export default function MachineCard({ machine, onMaintain }) {
         ⏱ {rulTime ?? "--"}
       </p>
 
-      
-      
-
       {/* 📊 ML CONFIDENCE */}
       <p>
         📊 ML Confidence: {(prediction * 100).toFixed(1)}%
       </p>
-
-      
 
       {/* 📊 RISK BAR */}
       <div style={{
@@ -116,7 +128,8 @@ export default function MachineCard({ machine, onMaintain }) {
             prediction > 0.7 ? "#ff5252" :
             prediction > 0.4 ? "#ffeb3b" :
             "#00e676",
-          borderRadius: 4
+          borderRadius: 4,
+          transition: "all 0.3s ease"
         }} />
       </div>
 
@@ -129,7 +142,7 @@ export default function MachineCard({ machine, onMaintain }) {
         {maintaining ? "Maintaining..." : "🔧 Perform Maintenance"}
       </button>
 
-      {/* 🔍 LIVE INSPECTION */}
+      {/* 🔍 INSPECTION */}
       <div style={inspectBox}>
         <strong>Inspection Results:</strong>
 
