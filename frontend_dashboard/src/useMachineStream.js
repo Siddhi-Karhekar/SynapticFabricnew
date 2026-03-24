@@ -5,28 +5,26 @@ export default function useMachineStream() {
   // ==========================================
   // 📊 STATE
   // ==========================================
-
   const [machines, setMachines] = useState({});
   const [factoryAnalytics, setFactoryAnalytics] = useState({});
   const [agentAlerts, setAgentAlerts] = useState([]);
   const [agentActions, setAgentActions] = useState([]);
 
-  // 🔥 POPUP SYSTEM
+  // 🚀 POPUP SYSTEM
   const [popupMessage, setPopupMessage] = useState(null);
 
   const popupQueueRef = useRef([]);
   const isShowingRef = useRef(false);
 
-  // ✅ FIX: TRACK SHOWN ACTIONS (NO DUPLICATES)
+  // ✅ TRACK SHOWN ACTIONS (NO DUPLICATES)
   const shownActionsRef = useRef(new Set());
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
 
   // ==========================================
-  // 🎯 POPUP QUEUE HANDLER
+  // 🎯 POPUP QUEUE ENGINE
   // ==========================================
-
   const processPopupQueue = () => {
 
     if (isShowingRef.current) return;
@@ -36,29 +34,26 @@ export default function useMachineStream() {
 
     isShowingRef.current = true;
 
-    console.log("📢 SHOWING POPUP:", next);
-
     setPopupMessage(next);
 
     setTimeout(() => {
       setPopupMessage(null);
       isShowingRef.current = false;
 
-      // 🔁 PROCESS NEXT
+      // 🔁 NEXT POPUP
       processPopupQueue();
 
     }, 3000);
   };
 
   // ==========================================
-  // 🔌 WEBSOCKET
+  // 🔌 WEBSOCKET CONNECTION
   // ==========================================
-
   useEffect(() => {
 
     const connectWebSocket = () => {
 
-      console.log("🔌 Attempting WebSocket connection...");
+      console.log("🔌 Connecting WS...");
 
       const ws = new WebSocket("ws://127.0.0.1:8000/ws/machines");
       wsRef.current = ws;
@@ -71,14 +66,11 @@ export default function useMachineStream() {
       };
 
       // =========================
-      // 📡 MESSAGE
+      // 📡 MESSAGE RECEIVED
       // =========================
       ws.onmessage = (event) => {
         try {
-
           const payload = JSON.parse(event.data);
-
-          console.log("📡 WS DATA RECEIVED:", payload);
 
           const machineArray = payload?.machines || [];
           const analytics = payload?.factory_analytics || {};
@@ -88,7 +80,7 @@ export default function useMachineStream() {
           const mapped = {};
 
           // ======================================
-          // 🏭 MACHINE MAPPING
+          // 🏭 MACHINE DATA MAPPING
           // ======================================
           machineArray.forEach((m) => {
 
@@ -112,7 +104,7 @@ export default function useMachineStream() {
               })),
 
               diagnosis: (m.root_cause || []).map((c) => ({
-                issue: c.issue || "Unknown issue",
+                issue: c.issue || "Unknown",
                 confidence: c.confidence ?? 0,
                 reason: c.reason || ""
               })),
@@ -136,26 +128,33 @@ export default function useMachineStream() {
           setAgentActions(actions);
 
           // ======================================
-          // 🚀 POPUP SYSTEM
+          // 🚀 POPUP LOGIC (FULLY FIXED)
           // ======================================
           actions.forEach((a) => {
 
-            if (a.action === "AUTO_MAINTENANCE" && a.status === "STARTING") {
+            if (a.action === "AUTO_MAINTENANCE") {
 
-              const uniqueKey = `${a.machine_id}-${a.timestamp}`;
+              // 🔥 SAFE UNIQUE KEY
+              const uniqueKey = `${a.machine_id}-${a.timestamp}-${a.status}`;
 
-              // ❌ PREVENT DUPLICATE POPUPS
-              if (shownActionsRef.current.has(uniqueKey)) {
-                return;
-              }
-
+              if (shownActionsRef.current.has(uniqueKey)) return;
               shownActionsRef.current.add(uniqueKey);
 
-              const msg = `🤖 Performing auto-maintenance on ${a.machine_id}`;
+              let msg = "";
 
-              console.log("🔥 QUEUED POPUP:", msg);
+              // ⚙️ STARTING
+              if (a.status === "STARTING") {
+                msg = `⚙️ Performing maintenance on ${a.machine_id}`;
+              }
 
-              popupQueueRef.current.push(msg);
+              // ✅ SUCCESS
+              if (a.status === "SUCCESS") {
+                msg = `✅ Maintenance completed for ${a.machine_id}`;
+              }
+
+              if (msg) {
+                popupQueueRef.current.push(msg);
+              }
             }
           });
 
@@ -177,7 +176,7 @@ export default function useMachineStream() {
       // 🔁 RECONNECT
       // =========================
       ws.onclose = () => {
-        console.warn("⚠️ WebSocket closed. Reconnecting...");
+        console.warn("⚠️ WS closed. Reconnecting...");
 
         reconnectRef.current = setTimeout(() => {
           connectWebSocket();
@@ -191,7 +190,7 @@ export default function useMachineStream() {
     // CLEANUP
     // =========================
     return () => {
-      console.log("🔌 Cleaning up WebSocket...");
+      console.log("🔌 Cleaning WS...");
 
       if (wsRef.current) wsRef.current.close();
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
@@ -200,9 +199,8 @@ export default function useMachineStream() {
   }, []);
 
   // ==========================================
-  // 📦 RETURN
+  // 📦 RETURN STATE
   // ==========================================
-
   return {
     machines,
     factoryAnalytics,

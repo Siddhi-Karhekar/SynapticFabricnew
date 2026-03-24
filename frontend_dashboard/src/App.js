@@ -273,15 +273,17 @@ const styles = {
   },
 
   popup: {
-    position: "fixed",
-    top: "20px",
-    left: "20px",
-    background: "linear-gradient(135deg, #00c853, #00e676)",
-    color: "white",
-    padding: "14px 22px",
-    borderRadius: "12px",
-    fontWeight: "bold",
-    boxShadow: "0 0 25px rgba(0,0,0,0.6)",
-    zIndex: 3000,
-  }
+  position: "fixed",
+  top: "20px",
+  left: "50%",
+  transform: "translateX(-50%)",
+  background: "linear-gradient(135deg, #2563eb, #1e40af)",
+  color: "white",
+  padding: "14px 26px",
+  borderRadius: "12px",
+  fontWeight: "bold",
+  boxShadow: "0 0 25px rgba(0,0,0,0.6)",
+  zIndex: 3000,
+  animation: "fadeIn 0.3s ease"
+}
 };

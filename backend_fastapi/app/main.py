@@ -180,7 +180,8 @@ async def stream(ws: WebSocket):
                         agent_actions.append({
                             "machine_id": mid,
                             "action": "AUTO_MAINTENANCE",
-                            "status": "STARTING"
+                            "status": "STARTING",
+                            "timestamp": time.time()
                         })
 
                         await asyncio.sleep(1.5)
@@ -197,7 +198,8 @@ async def stream(ws: WebSocket):
                         agent_actions.append({
                             "machine_id": mid,
                             "action": "AUTO_MAINTENANCE",
-                            "status": "SUCCESS"
+                            "status": "SUCCESS",
+                            "timestamp": time.time()
                         })
 
             # 📊 ANALYTICS
