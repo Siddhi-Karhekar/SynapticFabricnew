@@ -12,6 +12,8 @@ from backend_fastapi.database.database import SessionLocal, get_db
 from backend_fastapi.database.models import MachineLog
 from backend_fastapi.chatbot.rag_service import build_context_from_db
 from backend_fastapi.app.state import LIVE_MACHINES
+
+
 app = FastAPI()
 
 # ==========================================

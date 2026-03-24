@@ -78,3 +78,30 @@ def build_timeline(logs):
         )
 
     return "\n".join(lines)
+    from datetime import datetime
+
+def get_machine_state_at_time(db, machine_id, time_str):
+    try:
+        target_time = datetime.strptime(time_str, "%H:%M")
+
+        logs = (
+            db.query(MachineLog)
+            .filter(MachineLog.machine_id == machine_id)
+            .all()
+        )
+
+        if not logs:
+            return None
+
+        # 🔥 find closest timestamp
+        closest = min(
+            logs,
+            key=lambda l: abs(
+                l.timestamp.replace(year=1900, month=1, day=1) - target_time
+            )
+        )
+
+        return closest
+
+    except Exception as e:
+        return None

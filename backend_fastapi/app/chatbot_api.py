@@ -1,171 +1,285 @@
 # ==========================================
-# 🤖 INDUSTRIAL AI CHATBOT (OPTIMIZED)
+# 🤖 INDUSTRIAL AI CHATBOT (FINAL PRODUCTION)
+# FAST + RAG + REAL-TIME + REASONING
 # ==========================================
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from backend_fastapi.database.database import get_db
-from backend_fastapi.chatbot.intent_parser import parse_intent, extract_machine
-from backend_fastapi.chatbot.history_tools import get_recent_events
+from backend_fastapi.chatbot.intent_parser import (
+    parse_intent,
+    extract_machine,
+    extract_time
+)
+
+from backend_fastapi.chatbot.history_tools import (
+    get_recent_events,
+    get_machine_state_at_time
+)
+
 from backend_fastapi.app.state import LIVE_MACHINES
+
 from backend_fastapi.chatbot.reasoning_engine import (
     generate_root_cause,
     compare_machines
 )
+
 from backend_fastapi.chatbot.llm_client import generate_llm_response
+
+from backend_fastapi.chatbot.memory import (
+    add_to_memory,
+    get_memory_context
+)
+
+from backend_fastapi.chatbot.analysis_agent import analyze_patterns
+from backend_fastapi.chatbot.prediction_agent import predict_failure_risk
+
+from vectordb.semantic_retriever import retrieve_similar_context
 
 router = APIRouter()
 
-
-# ==========================================
-# ⚡ MINIMAL CONTEXT BUILDER (HIGH PERFORMANCE)
-# ==========================================
-def build_minimal_context(question: str, machine_id: str, db: Session) -> str:
-    """
-    Builds a compact, relevant context for LLM.
-    Designed for phi3-mini → minimal tokens, max signal.
-    """
-
-    context_parts = []
-
-    # ==========================================
-    # 🔴 LIVE MACHINE CONTEXT (PRIMARY SIGNAL)
-    # ==========================================
-    if machine_id and machine_id in LIVE_MACHINES:
-        m = LIVE_MACHINES[machine_id]
-
-        context_parts.append(
-            f"{machine_id}: "
-            f"T={m.get('temperature', 0):.1f}, "
-            f"V={m.get('vibration_index', 0):.2f}, "
-            f"W={m.get('tool_wear', 0):.2f}, "
-            f"R={m.get('prediction', 0):.2f}, "
-            f"H={m.get('health_status', 'Unknown')}"
-        )
-
-    # ==========================================
-    # 🔴 SHORT HISTORY (LAST FEW EVENTS ONLY)
-    # ==========================================
-    try:
-        logs = get_recent_events(db, minutes=2)
-
-        # 🔥 only last 3 entries (CRITICAL FOR SPEED)
-        for log in logs[-3:]:
-            context_parts.append(
-                f"{log.machine_id}: "
-                f"T={log.temperature:.1f}, "
-                f"V={log.vibration_index:.2f}, "
-                f"R={log.failure_probability:.2f}, "
-                f"H={log.health_status}"
-            )
-    except Exception:
-        context_parts.append("History unavailable")
-
-    return "\n".join(context_parts)
+CACHE = {}
 
 
-# ==========================================
-# ⚡ PROMPT BUILDER (STRICT + SHORT OUTPUT)
-# ==========================================
-def build_prompt(question: str, context: str) -> str:
-    """
-    Strict prompt to force short, precise answers.
-    """
-
-    return f"""
-You are a senior industrial reliability engineer.
-
-Rules:
-- Answer in MAX 2 sentences
-- Be direct and technical
-- No explanations unless necessary
-- No filler text
-
-Question:
-{question}
-
-Data:
-{context}
-""".strip()
+def respond(question, response):
+    CACHE[question] = response
+    add_to_memory(question, response)
+    return {"response": response}
 
 
-# ==========================================
-# 🤖 CHAT ENDPOINT
-# ==========================================
 @router.post("/chat")
 def chat(payload: dict, db: Session = Depends(get_db)):
 
-    question = payload.get("message", "").strip()
+    try:
+        question = payload.get("message", "").strip()
 
-    if not question:
-        return {"response": "Empty query"}
+        if not question:
+            return {"response": "Empty query"}
 
-    intent = parse_intent(question)
-    machine_id = extract_machine(question)
+        if question in CACHE:
+            return {"response": CACHE[question]}
 
-    # ==========================================
-    # ⚡ FAST PATHS (NO LLM → INSTANT RESPONSE)
-    # ==========================================
+        # FOLLOW-UP HANDLING
+        if question.lower() in ["why", "why?", "reason?"]:
+            memory = get_memory_context()
+            if memory:
+                question = memory.split("\n")[0].replace("Q: ", "")
 
-    if intent["type"] == "metric" and machine_id:
-        m = LIVE_MACHINES.get(machine_id)
+        intent = parse_intent(question)
+        machine_id = extract_machine(question)
+        query_time = extract_time(question)
 
-        if not m:
-            return {"response": f"{machine_id} not available"}
+        machine = LIVE_MACHINES.get(machine_id) if machine_id else None
 
-        return {
-            "response": (
-                f"{machine_id}: {m['temperature']:.1f}°C | "
-                f"Risk {m['prediction']*100:.0f}%"
+        # ==========================================
+        # 🔥 HARD ROUTING FOR COMPARISON (CRITICAL)
+        # ==========================================
+        q_lower = question.lower()
+        if any(x in q_lower for x in [
+            "which machine", "which is",
+            "most critical", "worst",
+            "healthiest", "best"
+        ]):
+            return respond(question, compare_machines(LIVE_MACHINES))
+
+        # ==========================================
+        # ⏱ TIME QUERY
+        # ==========================================
+        if intent["type"] in ["metric", "historical"] and machine_id and query_time:
+
+            try:
+                log = get_machine_state_at_time(db, machine_id, query_time)
+
+                if log:
+                    return respond(
+                        question,
+                        f"{machine_id} at {query_time} → "
+                        f"{log.temperature:.2f}°C | "
+                        f"Risk {(log.failure_probability or 0)*100:.0f}%"
+                    )
+
+                return respond(question, "No data for that time")
+
+            except Exception as e:
+                print("TIME ERROR:", e)
+                return respond(question, "Error retrieving historical data")
+
+        # ==========================================
+        # 📊 METRIC HANDLING
+        # ==========================================
+        if intent["type"] == "metric":
+
+            if not LIVE_MACHINES:
+                return respond(question, "No live machine data available")
+
+            try:
+                metric = intent.get("metric")
+
+                if machine_id and machine_id in LIVE_MACHINES:
+                    m = LIVE_MACHINES[machine_id]
+                    value = m.get(metric)
+
+                    if value is None:
+                        return respond(
+                            question,
+                            f"{metric} not available for {machine_id}"
+                        )
+
+                    return respond(
+                        question,
+                        f"{machine_id} {metric.replace('_',' ')} = {value:.2f}"
+                    )
+
+                best = max(
+                    LIVE_MACHINES.values(),
+                    key=lambda x: x.get(metric, 0)
+                )
+
+                return respond(
+                    question,
+                    f"{best['machine_id']} highest {metric.replace('_',' ')} "
+                    f"({best.get(metric,0):.2f})"
+                )
+
+            except Exception as e:
+                print("METRIC ERROR:", e)
+                return respond(question, "Error processing metric query")
+
+        # ==========================================
+        # 📊 COMPARISON (FIXED 🔥)
+        # ==========================================
+        if intent["type"] == "comparison":
+
+            if not LIVE_MACHINES:
+                return respond(question, "No live machine data available")
+
+            try:
+                return respond(question, compare_machines(LIVE_MACHINES))
+            except Exception as e:
+                print("COMPARISON ERROR:", e)
+                return respond(question, "Unable to compare machines")
+
+        # ==========================================
+        # 🧠 ROOT CAUSE (ALIGNED WITH SYSTEM 🔥)
+        # ==========================================
+        if intent["type"] == "root_cause" and machine:
+
+            try:
+                # ======================================
+                # ✅ 1. USE ANALYZER ROOT CAUSE (PRIMARY)
+                # ======================================
+                root_causes = machine.get("root_cause", [])
+                alerts = machine.get("alerts", [])
+                ai_reason = machine.get("ai_reason", "")
+
+                reasons = []
+
+                # 🔴 structured root causes
+                if root_causes:
+                    for cause in root_causes:
+                        issue = cause.get("issue")
+                        if issue:
+                            reasons.append(issue)
+
+                # 🟡 alerts fallback
+                if not reasons and alerts:
+                    reasons = [a["message"] for a in alerts]
+
+                # 🔵 SHAP explanation fallback
+                if not reasons and ai_reason:
+                    reasons.append(ai_reason)
+
+                # ======================================
+                # ❌ LAST RESORT (OLD LOGIC)
+                # ======================================
+                if not reasons:
+                    reasons.append(generate_root_cause(machine_id, machine))
+
+                # ======================================
+                # 🧠 ADD INSIGHTS + PREDICTION
+                # ======================================
+                insights = ", ".join(analyze_patterns(machine))
+                prediction = predict_failure_risk(machine)
+
+                return respond(
+                    question,
+                    f"{machine_id}: {', '.join(reasons)} | {insights} | {prediction}"
+                )
+
+            except Exception as e:
+                print("ROOT ERROR:", e)
+
+                # ==========================================
+                # 🕒 HISTORY
+                # ==========================================
+                if intent["type"] == "historical":
+                    try:
+                        logs = get_recent_events(db, minutes=2)[-5:]
+
+                        if not logs:
+                            return respond(question, "No historical data")
+
+                        summary = [
+                            f"{l.machine_id}: T={l.temperature:.1f} "
+                            f"V={l.vibration_index:.2f} "
+                            f"R={l.failure_probability:.2f}"
+                            for l in logs
+                        ]
+
+                        return respond(question, "\n".join(summary))
+
+                    except Exception as e:
+                        print("HISTORY ERROR:", e)
+
+                # ==========================================
+                # 📚 RAG
+                # ==========================================
+                if intent["type"] in ["failure_analysis", "general"]:
+                    try:
+                        rag = retrieve_similar_context(question)
+
+                        if rag:
+                            prompt = f"""
+        Answer in 1 short sentence.
+
+        Context:
+        {rag}
+
+        Q: {question}
+        """
+                            llm = generate_llm_response(prompt)
+                            return respond(question, llm)
+
+                    except Exception as e:
+                        print("RAG ERROR:", e)
+
+        # ==========================================
+        # 🤖 FINAL LLM
+        # ==========================================
+        context = ""
+
+        if machine:
+            context = (
+                f"{machine_id}: T={machine.get('temperature',0):.1f}, "
+                f"V={machine.get('vibration_index',0):.2f}, "
+                f"R={machine.get('prediction',0):.2f}"
             )
-        }
 
-    if intent["type"] == "comparison":
-        return {"response": compare_machines(LIVE_MACHINES)}
+        memory = get_memory_context()
 
-    if intent["type"] == "maintenance":
-        return {"response": compare_machines(LIVE_MACHINES)}
+        prompt = f"""
+Answer in 1 short sentence.
 
-    # ==========================================
-    # 🧠 ROOT CAUSE (HYBRID: RULE + LLM)
-    # ==========================================
-    if intent["type"] == "root_cause" and machine_id:
-        m = LIVE_MACHINES.get(machine_id)
+Q: {question}
+Data: {context}
+Memory: {memory}
+"""
 
-        if not m:
-            return {"response": "No data available"}
+        return respond(question, generate_llm_response(prompt))
 
-        # ⚡ RULE-BASED (FAST + RELIABLE)
-        rule_response = generate_root_cause(machine_id, m)
-
-        # ⚡ MINIMAL CONTEXT FOR LLM
-        context = build_minimal_context(question, machine_id, db)
-        prompt = build_prompt(question, context)
-
-        llm_response = generate_llm_response(prompt)
-
+    except Exception as e:
+        print("🔥 CRITICAL ERROR:", e)
         return {
-            "response": f"{rule_response}. {llm_response}"
+            "response": "System running but encountered an issue. Try again."
         }
-
-    # ==========================================
-    # 📜 HISTORICAL / FAILURE ANALYSIS
-    # ==========================================
-    if intent["type"] in ["historical", "failure_analysis"]:
-        context = build_minimal_context(question, machine_id, db)
-        prompt = build_prompt(question, context)
-
-        llm_response = generate_llm_response(prompt)
-
-        return {"response": llm_response}
-
-    # ==========================================
-    # 🤖 GENERAL (LLM FALLBACK)
-    # ==========================================
-    context = build_minimal_context(question, machine_id, db)
-    prompt = build_prompt(question, context)
-
-    llm_response = generate_llm_response(prompt)
-
-    return {"response": llm_response}

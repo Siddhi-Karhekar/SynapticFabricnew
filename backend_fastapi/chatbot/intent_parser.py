@@ -1,5 +1,5 @@
 # ==========================================
-# 🧠 ADVANCED INTENT PARSER (INDUSTRIAL GRADE)
+# 🧠 ADVANCED INTENT PARSER (PRODUCTION GRADE)
 # ==========================================
 
 import re
@@ -14,17 +14,60 @@ METRIC_KEYWORDS = {
 }
 
 
+# ==========================================
+# 🧠 MAIN INTENT PARSER
+# ==========================================
 def parse_intent(question: str):
     q = question.lower()
 
     # ==========================================
-    # 🔴 ROOT CAUSE / REASONING
+    # 🔴 ROOT CAUSE
     # ==========================================
-    if any(x in q for x in ["why", "cause", "reason", "root cause"]):
+    if any(x in q for x in ["why", "cause", "reason", "root cause", "explain"]):
         return {"type": "root_cause"}
 
     # ==========================================
-    # 📊 HISTORICAL ANALYSIS
+    # 📈 COMPARISON
+    # ==========================================
+    if any(x in q for x in [
+        "compare", "highest", "max", "worst",
+        "critical", "best", "healthiest",
+        "safest", "lowest", "top"
+    ]):
+        return {"type": "comparison"}
+
+    # ==========================================
+    # 🔧 MAINTENANCE
+    # ==========================================
+    if any(x in q for x in [
+        "maintain", "maintenance", "repair",
+        "fix", "priority", "service"
+    ]):
+        return {"type": "maintenance"}
+
+    # ==========================================
+    # 🔮 PREDICTION
+    # ==========================================
+    if any(x in q for x in [
+        "predict", "future", "next", "rul", "remaining life"
+    ]):
+        return {"type": "prediction"}
+
+    # ==========================================
+    # 📊 METRIC (MOVE UP 🔥)
+    # ==========================================
+    for metric, keywords in METRIC_KEYWORDS.items():
+        if any(k in q for k in keywords):
+            return {"type": "metric", "metric": metric}
+
+    # ==========================================
+    # ⏱ TIME DETECTION (STRICT)
+    # ==========================================
+    if re.search(r'\d{1,2}:\d{2}', q):
+        return {"type": "historical"}
+
+    # ==========================================
+    # 📊 HISTORICAL (NO "at" ❌)
     # ==========================================
     if any(x in q for x in ["history", "trend", "last", "past", "timeline"]):
         return {"type": "historical"}
@@ -35,28 +78,6 @@ def parse_intent(question: str):
     if any(x in q for x in ["failure", "fail", "breakdown"]):
         return {"type": "failure_analysis"}
 
-    # ==========================================
-    # 📈 COMPARISON
-    # ==========================================
-    if any(x in q for x in ["compare", "highest", "max", "worst", "critical"]):
-        return {"type": "comparison"}
-
-    # ==========================================
-    # 🔧 MAINTENANCE
-    # ==========================================
-    if any(x in q for x in ["maintain", "maintenance", "repair", "fix", "priority"]):
-        return {"type": "maintenance"}
-
-    # ==========================================
-    # 📊 METRIC DETECTION
-    # ==========================================
-    for metric, keywords in METRIC_KEYWORDS.items():
-        if any(k in q for k in keywords):
-            return {"type": "metric", "metric": metric}
-
-    # ==========================================
-    # GENERAL
-    # ==========================================
     return {"type": "general"}
 
 
@@ -70,9 +91,22 @@ def extract_machine(question: str):
         if m in q:
             return m
 
-    # regex fallback (e.g., m1, m-1, machine 1)
     match = re.search(r"M[\s\-_]?(\d)", q)
     if match:
         return f"M_{match.group(1)}"
+
+    return None
+
+
+# ==========================================
+# ⏱ TIME EXTRACTOR
+# ==========================================
+def extract_time(question: str):
+    q = question.lower()
+
+    match = re.search(r'(\d{1,2}:\d{2})', q)
+
+    if match:
+        return match.group(1)
 
     return None
