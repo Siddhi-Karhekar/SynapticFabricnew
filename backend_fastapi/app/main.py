@@ -11,7 +11,7 @@ from backend_fastapi.app.chatbot_api import router as chatbot_router
 from backend_fastapi.database.database import SessionLocal, get_db
 from backend_fastapi.database.models import MachineLog
 from backend_fastapi.chatbot.rag_service import build_context_from_db
-
+from backend_fastapi.app.state import LIVE_MACHINES
 app = FastAPI()
 
 # ==========================================
@@ -140,6 +140,9 @@ async def stream(ws: WebSocket):
 
             # 🤖 AI ANALYSIS
             analyzed = machine_analyzer.analyze_machines(machines)
+            # 🔴 STORE LIVE STATE FOR CHATBOT
+            for m in analyzed:
+                LIVE_MACHINES[m["machine_id"]] = m
 
             # 💾 SAVE EVERY SECOND
             save_machine_snapshot(analyzed)
@@ -308,30 +311,3 @@ def get_history(minutes: int = 5):
 # ==========================================
 # 🤖 CHAT WITH HISTORY (NEW 🔥)
 # ==========================================
-@app.post("/chat")
-def chat(payload: dict, db: Session = Depends(get_db)):
-
-    user_message = payload.get("message", "")
-
-    if not user_message:
-        return {"response": "No question provided"}
-
-    # 🔥 BUILD CONTEXT FROM DB
-    context = build_context_from_db(db)
-
-    prompt = f"""
-You are an Industrial AI Assistant.
-
-Use the factory history below to answer.
-
-{context}
-
-Question: {user_message}
-
-Explain root cause clearly.
-"""
-
-    # TEMP MOCK (replace with OpenAI)
-    response = f"[AI]\n\n{prompt[:800]}"
-
-    return {"response": response}
