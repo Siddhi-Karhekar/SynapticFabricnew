@@ -102,11 +102,26 @@ def extract_machine(question: str):
 # ⏱ TIME EXTRACTOR
 # ==========================================
 def extract_time(question: str):
-    q = question.lower()
+    import re
 
+    q = question.lower().strip()
+
+    # HH:MM (14:00)
     match = re.search(r'(\d{1,2}:\d{2})', q)
-
     if match:
         return match.group(1)
+
+    # 2 pm / 2pm
+    match = re.search(r'(\d{1,2})\s*(am|pm)', q)
+    if match:
+        hour = int(match.group(1))
+        period = match.group(2)
+
+        if period == "pm" and hour != 12:
+            hour += 12
+        if period == "am" and hour == 12:
+            hour = 0
+
+        return f"{hour:02d}:00"
 
     return None

@@ -82,11 +82,10 @@ def chat(payload: dict, db: Session = Depends(get_db)):
             "healthiest", "best"
         ]):
             return respond(question, compare_machines(LIVE_MACHINES))
-
         # ==========================================
-        # ⏱ TIME QUERY
+        # ⏱ TIME QUERY (FORCE HISTORY 🔥)
         # ==========================================
-        if intent["type"] in ["metric", "historical"] and machine_id and query_time:
+        if machine_id and query_time:
 
             try:
                 log = get_machine_state_at_time(db, machine_id, query_time)
@@ -211,7 +210,8 @@ def chat(payload: dict, db: Session = Depends(get_db)):
                 print("ROOT ERROR:", e)
 
                 # ==========================================
-                # 🕒 HISTORY
+                # ==========================================
+                # 🕒 HISTORY (CORRECT POSITION 🔥)
                 # ==========================================
                 if intent["type"] == "historical":
                     try:
